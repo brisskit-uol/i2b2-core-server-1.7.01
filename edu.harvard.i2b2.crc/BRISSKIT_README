@@ -14,8 +14,9 @@ NB: The following notes are for i2b2 version 1.7.x, when the common package
     should be available from the Brisskit Maven third-party repo.) 
 (4) Select all projects to import.
 (5) All the java projects will have .classpath files.
-    Examine each of these and change all the references to edu.harvard.i2b2.common 
+    Examine each of these and change all references from edu.harvard.i2b2.common 
     to edu.harvard.i2b2.server-common
+    NB: even then not all the .classpath may be correct and may require further hand editing.
 (6) You can optionally link each cell project to the edu.harvard.i2b2.server-common
     project via the project properties option (JAVA BUILD PATH).
     Jeff did this for consistency's sake.
