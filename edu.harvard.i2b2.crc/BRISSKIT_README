@@ -38,4 +38,9 @@ To take Brisskit changes into development:
     it with the corresponding Brisskit version from svn.
 (c) Build the Brisskit version from the command line, and refresh within Eclipse.
 
+WARNING and REQUEST. 
+Try not to commit files from the classes, dist, genlib and gensrc directories.
+Binaries contained in other directories are unfortunately required.
+
+
 
