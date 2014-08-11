@@ -12,6 +12,7 @@ import edu.harvard.i2b2.common.exception.I2B2Exception;
 import edu.harvard.i2b2.common.util.jaxb.JAXBUtil;
 import edu.harvard.i2b2.crc.dao.CRCDAO;
 import edu.harvard.i2b2.crc.dao.DAOFactoryHelper;
+import edu.harvard.i2b2.crc.dao.DataSourceLookupDAOFactory;
 import edu.harvard.i2b2.crc.dao.IDAOFactory;
 import edu.harvard.i2b2.crc.dao.SetFinderDAOFactory;
 import edu.harvard.i2b2.crc.dao.setfinder.querybuilder.ProcessTimingReportUtil;
@@ -39,6 +40,12 @@ import edu.harvard.i2b2.crc.util.SqlClauseUtil;
  * 
  * Calls the ontology to get the children for the result type and then
  * calculates the patient count for each child of the result type.
+ * 
+ * This version has been altered by Jeff Lusted in order to accommodate
+ * the backslash character where the SQL operator is LIKE.
+ * A bug associated with Postgresql.
+ * (jeff.lusted@gmail.com)
+ * 
  */
 public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 
@@ -46,13 +53,10 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 	 * Function accepts parameter in Map. The patient count will be obfuscated
 	 * if the user is OBFUS
 	 */
-	public void generateResult(Map param) throws CRCTimeOutException,
-			I2B2DAOException {
+	public void generateResult(Map param) throws CRCTimeOutException, I2B2DAOException {
 
-		SetFinderConnection sfConn = (SetFinderConnection) param
-				.get("SetFinderConnection");
-		SetFinderDAOFactory sfDAOFactory = (SetFinderDAOFactory) param
-				.get("SetFinderDAOFactory");
+		SetFinderConnection sfConn = (SetFinderConnection) param.get("SetFinderConnection");
+		SetFinderDAOFactory sfDAOFactory = (SetFinderDAOFactory) param.get("SetFinderDAOFactory");
 
 		// String patientSetId = (String)param.get("PatientSetId");
 		String queryInstanceId = (String) param.get("QueryInstanceId");
@@ -66,9 +70,8 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 		int transactionTimeout = (Integer) param.get("TransactionTimeout");
 		boolean obfscDataRoleFlag = (Boolean)param.get("ObfuscatedRoleFlag");
 		
-		this
-				.setDbSchemaName(sfDAOFactory.getDataSourceLookup()
-						.getFullSchema());
+		this.setDbSchemaName(sfDAOFactory.getDataSourceLookup().getFullSchema());
+		
 		Map ontologyKeyMap = (Map) param.get("setFinderResultOntologyKeyMap");
 		String serverType = (String) param.get("ServerType");
 //		CallOntologyUtil ontologyUtil = (CallOntologyUtil) param
@@ -86,8 +89,7 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 			logTimingUtil.setStartTime();
 			itemKey = getItemKeyFromResultType(sfDAOFactory, resultTypeName);
 
-			log.debug("Result type's " + resultTypeName + " item key value "
-					+ itemKey);
+			log.debug("Result type's " + resultTypeName + " item key value " + itemKey);
 			
 			LogTimingUtil subLogTimingUtil = new LogTimingUtil();
 			subLogTimingUtil.setStartTime();
@@ -95,6 +97,7 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 			if (conceptsType != null && conceptsType.getConcept().size()<1) { 
 				throw new I2B2DAOException("Could not fetch children result type " + resultTypeName + " item key [ " + itemKey + " ]" );
 			}
+			
 			subLogTimingUtil.setEndTime();
 			if (processTimingFlag != null) {
 				if (processTimingFlag.trim().equalsIgnoreCase(ProcessTimingReportUtil.DEBUG) ) {
@@ -122,31 +125,46 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 			resultType.setName(resultTypeName);
 			stmt = sfConn.prepareStatement(itemCountSql);
 
-			CancelStatementRunner csr = new CancelStatementRunner(stmt,
-					transactionTimeout);
+			CancelStatementRunner csr = new CancelStatementRunner(stmt,	transactionTimeout);
 			Thread csrThread = new Thread(csr);
 			csrThread.start();
 
 			for (ConceptType conceptType : conceptsType.getConcept()) {
 
 				String joinTableName = "observation_fact";
-				if (conceptType.getTablename().equalsIgnoreCase(
-						"patient_dimension")) { 
+				if (conceptType.getTablename().equalsIgnoreCase("patient_dimension")) { 
 					joinTableName = "patient_dimension";
-				} else if (conceptType.getTablename().equalsIgnoreCase(
-						"visit_dimension")) { 
+				} else if (conceptType.getTablename().equalsIgnoreCase("visit_dimension")) { 
 					joinTableName = "visit_dimension"; 
 				}
 				
 				String dimCode = this.getDimCodeInSqlFormat(conceptType);
 				
-				 itemCountSql = " select count(distinct PATIENT_NUM) as item_count  from " +  this.getDbSchemaName() + joinTableName +  
-				 " where " + " patient_num in (select patient_num from "
-				+ TEMP_DX_TABLE
-				+ " )  and "+ conceptType.getFacttablecolumn() + " IN (select "
+				//-----------------------------------------------------------------------------------------------
+				// Jeff Lusted. 
+				// Using the LIKE escape character correctly for ontology path statements...
+				// The postgres LIKE escape character is '\'
+				// and an ontology path itself contains backslashes (eg: 'i2b2\demographics\etc' )
+				// So the backslashes must themselves be escaped!
+				if( 
+					serverType.equalsIgnoreCase( DataSourceLookupDAOFactory.POSTGRESQL )
+				  ) {
+					
+					// NB: The escape character for strings in Java is itself a backslash!!! Just to be awkward.
+					// The following effectively replaces one backslash with two.
+					dimCode = dimCode.replace( "\\", "\\\\" ) ;					
+				}
+				//-----------------------------------------------------------------------------------------------
+				
+				itemCountSql = 
+				"select " +
+						"count(distinct PATIENT_NUM) as item_count from " +  this.getDbSchemaName() + joinTableName +  
+				" where " + 
+						"patient_num in (select patient_num from " + TEMP_DX_TABLE + " ) " +
+				"and "+ conceptType.getFacttablecolumn() + " IN (select "
 				+ conceptType.getFacttablecolumn() + " from "
 				+ getDbSchemaName() + conceptType.getTablename() + "  "
-				+  " where " + conceptType.getColumnname()
+				+ " where " + conceptType.getColumnname()
 				+ " " + conceptType.getOperator() + " "
 				+ dimCode + ")";
 				 
@@ -161,6 +179,8 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 					timeoutFlag = true;
 					throw new CRCTimeOutException("The query was canceled.");
 				}
+				// Jeff Lusted.
+				// The SQL is a count, so this is to focus on the one and only row...
 				resultSet.next();
 				int demoCount = resultSet.getInt("item_count");
 				subLogTimingUtil.setEndTime();
@@ -184,6 +204,7 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 				mdataType.setColumn(conceptType.getName());
 				mdataType.setType("int");
 				resultType.getData().add(mdataType);
+				
 			}
 			csr.setSqlFinishedFlag();
 			csrThread.interrupt();
@@ -199,13 +220,11 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 
 			StringWriter strWriter = new StringWriter();
 			subLogTimingUtil.setStartTime();
-			jaxbUtil.marshaller(of.createI2B2ResultEnvelope(resultEnvelop),
-					strWriter);
+			jaxbUtil.marshaller(of.createI2B2ResultEnvelope(resultEnvelop),	strWriter);
 			subLogTimingUtil.setEndTime();
 			//tm.begin();
 			IXmlResultDao xmlResultDao = sfDAOFactory.getXmlResultDao();
-			xmlResultDao.createQueryXmlResult(resultInstanceId, strWriter
-					.toString());
+			xmlResultDao.createQueryXmlResult(resultInstanceId, strWriter.toString());
 			//
 			if (processTimingFlag != null) {
 				if (!processTimingFlag.trim().equalsIgnoreCase(ProcessTimingReportUtil.NONE) ) {
@@ -223,8 +242,7 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 			// out
 			if (sqlServerEx.getMessage().indexOf("timed out") > -1) {
 				timeoutFlag = true;
-				throw new CRCTimeOutException(sqlServerEx.getMessage(),
-						sqlServerEx);
+				throw new CRCTimeOutException(sqlServerEx.getMessage(), sqlServerEx);
 			} else if (sqlServerEx.getMessage().indexOf( // if the stmt.cancel()
 					// worked, then this
 					// exception is
@@ -232,14 +250,12 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 					"The query was canceled.") > -1) {
 
 				timeoutFlag = true;
-				throw new CRCTimeOutException(sqlServerEx.getMessage(),
-						sqlServerEx);
+				throw new CRCTimeOutException(sqlServerEx.getMessage(),	sqlServerEx);
 			} else {
 
 				errorFlag = true;
 				log.error("Sqlserver error while executing sql", sqlServerEx);
-				throw new I2B2DAOException(
-						"Sqlserver error while executing sql", sqlServerEx);
+				throw new I2B2DAOException(	"Sqlserver error while executing sql", sqlServerEx);
 			}
 
 		} catch (SQLException sqlEx) {
@@ -258,15 +274,12 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 		} catch (Exception sqlEx) {
 
 			errorFlag = true;
-			log.error("QueryResultPatientSetGenerator.generateResult:"
-					+ sqlEx.getMessage(), sqlEx);
+			log.error("QueryResultPatientSetGenerator.generateResult:" + sqlEx.getMessage(), sqlEx);
 			throw new I2B2DAOException(
-					"QueryResultPatientSetGenerator.generateResult:"
-							+ sqlEx.getMessage(), sqlEx);
+					"QueryResultPatientSetGenerator.generateResult:" + sqlEx.getMessage(), sqlEx);
 		} finally {
 
-			IQueryResultInstanceDao resultInstanceDao = sfDAOFactory
-					.getPatientSetResultDAO();
+			IQueryResultInstanceDao resultInstanceDao = sfDAOFactory.getPatientSetResultDAO();
 
 			if (errorFlag) {
 				resultInstanceDao.updatePatientSet(resultInstanceId,
@@ -288,18 +301,19 @@ public class QueryResultGenerator extends CRCDAO implements IResultGenerator {
 							obfuscatedRecordCount = recordCount;
 						}
 						IQueryResultTypeDao resultTypeDao = sfDAOFactory.getQueryResultTypeDao();
-						List<QtQueryResultType> resultTypeList = resultTypeDao
-						.getQueryResultTypeByName(resultTypeName);
+						List<QtQueryResultType> resultTypeList = resultTypeDao.getQueryResultTypeByName(resultTypeName);
 
 						// add "(Obfuscated)" in the description
 						//description = resultTypeList.get(0)
 						//		.getDescription()
 						//		+ " (Obfuscated) ";
-						String queryName = sfDAOFactory.getQueryMasterDAO().getQueryDefinition(
-						sfDAOFactory.getQueryInstanceDAO().getQueryInstanceByInstanceId(queryInstanceId).getQtQueryMaster().getQueryMasterId()).getName();
-
-						
-						
+						String queryName = 
+								sfDAOFactory.getQueryMasterDAO().getQueryDefinition( sfDAOFactory
+																						.getQueryInstanceDAO()
+																						.getQueryInstanceByInstanceId(queryInstanceId)
+																						.getQtQueryMaster()
+																						.getQueryMasterId() ).getName();
+				
 						resultInstanceDao.updatePatientSet(resultInstanceId,
 								QueryStatusTypeId.STATUSTYPE_ID_FINISHED, null,
 								//obsfcTotal, 
