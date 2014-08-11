@@ -12,8 +12,7 @@ import edu.harvard.i2b2.crc.util.QueryProcessorUtil;
 public class DataSourceLookupDAOFactory {
 
 	/** log **/
-	protected final static Log log = LogFactory
-			.getLog(DataSourceLookupDAOFactory.class);
+	protected final static Log log = LogFactory.getLog(DataSourceLookupDAOFactory.class);
 
 	public static final String ORACLE = "ORACLE";
 	public static final String SQLSERVER = "SQLSERVER";

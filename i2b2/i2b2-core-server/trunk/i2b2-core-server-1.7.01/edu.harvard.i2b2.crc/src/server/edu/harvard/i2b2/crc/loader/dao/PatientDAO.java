@@ -4,10 +4,13 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.sql.DataSource;
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -31,6 +34,17 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 	private int DB_BATCH_INSERT_SIZE = 2000;
 
 	private static Log log = LogFactory.getLog(PatientDAO.class);
+	
+	private static DatatypeFactory datatypeFactory = null ;
+    static {
+        try {
+            datatypeFactory = DatatypeFactory.newInstance() ;
+        } 
+        catch( DatatypeConfigurationException dce ) {
+            throw new IllegalStateException( "Failed to obtain instance of DatatypeFactory", dce) ;
+        }
+    }
+	
 	private DataSourceLookup dataSourceLookup = null;
 
 	public PatientDAO(DataSourceLookup dataSourceLookup, DataSource ds) {
@@ -152,15 +166,25 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 		 * @param ds
 		 *            the DataSource to use for the insert
 		 */
-		protected TempPatientInsert(DataSource ds, String tableName,
-				String schemaName) {
+		protected TempPatientInsert(DataSource ds, String tableName, String schemaName) {
 			super(ds, "INSERT INTO " + schemaName + tableName + "  ("
-					+ "patient_id," + "patient_id_source,"
-					+ "age_in_years_num, " + "birth_date, " + "death_date, "
-					+ "language_cd, " + "marital_status_cd, " + "race_cd, "
-					+ "religion_cd, " + "sex_cd, " + "vital_status_cd, "
-					+ "zip_cd,  " + "statecityzip_path, " + "patient_blob,"
-					+ "sourcesystem_cd, " + "update_date, " + "download_date, "
+					+ "patient_id," 
+					+ "patient_id_source,"
+					+ "age_in_years_num, " 
+					+ "birth_date, " 
+					+ "death_date, "
+					+ "language_cd, " 
+					+ "marital_status_cd, " 
+					+ "race_cd, "
+					+ "religion_cd, " 
+					+ "sex_cd, " 
+					+ "vital_status_cd, "
+					+ "zip_cd,  " 
+					+ "statecityzip_path, " 
+					+ "patient_blob,"
+					+ "sourcesystem_cd, " 
+					+ "update_date, " 
+					+ "download_date, "
 					+ "import_date)  "
 					+ " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 			declareParameter(new SqlParameter(Types.VARCHAR));
@@ -183,6 +207,10 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 			declareParameter(new SqlParameter(Types.TIMESTAMP));
 			compile();
 		}
+		
+		private Date getDate( String xmlDate ) {
+			return datatypeFactory.newXMLGregorianCalendar( xmlDate ).toGregorianCalendar().getTime() ;
+		}
 
 		protected void insert(PatientType patient) {
 			Map<String, ParamType> paramMap = null;
@@ -194,64 +222,28 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 			}
 
 			Object[] objs = new Object[] {
-					(patient.getPatientId() != null) ? patient.getPatientId()
-							.getValue() : null,
-					(patient.getPatientId() != null) ? patient.getPatientId()
-							.getSource() : null,
-					(paramMap.get("age_in_years_num") != null) ? paramMap.get(
-							"age_in_years_num").getValue() : null, // patient.
-					// getAgeInYearsNum
-					(paramMap.get("birth_date") != null) ? paramMap.get(
-							"birth_date").getValue() : null,// patient.
-					// getBirthDate(),
-					(paramMap.get("death_date") != null) ? paramMap.get(
-							"death_date").getValue() : null,// patient.
-					// getDeathDate(),
-					(paramMap.get("language_cd") != null) ? paramMap.get(
-							"language_cd").getValue() : null,// patient.
-					// getDownloadDate
-					// (),
-					(paramMap.get("marital_status_cd") != null) ? paramMap.get(
-							"marital_status_cd").getValue() : null,// patient.
-					// getImportDate
-					// (),
-					(paramMap.get("race_cd") != null) ? paramMap.get("race_cd")
-							.getValue() : null,// patient.getLanguageCd(),
-					(paramMap.get("religion_cd") != null) ? paramMap.get(
-							"religion_cd").getValue() : null,// patient.
-					// getMaritalStatusCd
-					// (),
-					(paramMap.get("sex_cd") != null) ? paramMap.get("sex_cd")
-							.getValue() : null,// patient.getRaceCd(),
-					(paramMap.get("vital_status_cd") != null) ? paramMap.get(
-							"vital_status_cd").getValue() : null,// patient.
-					// getReligionCd
-					// (),
-					(paramMap.get("zip_cd") != null) ? paramMap.get("zip_cd")
-							.getValue() : null,// patient.getSexCd(),
-					(paramMap.get("statecityzip_path") != null) ? paramMap.get(
-							"statecityzip_path").getValue() : null,// patient.
-					// getSourceSystemCd
-					// (),
-					(patient.getPatientBlob() != null) ? patient
-							.getPatientBlob().getContent().get(0) : null,
-					(paramMap.get("sourcesystem_cd") != null) ? paramMap.get(
-							"sourcesystem_cd").getValue() : null,
+					(patient.getPatientId() != null) ? patient.getPatientId().getValue() : null,
+					(patient.getPatientId() != null) ? patient.getPatientId().getSource() : null,
+					(paramMap.get("age_in_years_num") != null) ? paramMap.get("age_in_years_num").getValue() : null, 
+					(paramMap.get("birth_date") != null) ? paramMap.get("birth_date").getValue() : null,
+					(paramMap.get("death_date") != null) ? paramMap.get("death_date").getValue() : null,
+					(paramMap.get("language_cd") != null) ? paramMap.get("language_cd").getValue() : null,
+					(paramMap.get("marital_status_cd") != null) ? paramMap.get("marital_status_cd").getValue() : null,
+					(paramMap.get("race_cd") != null) ? paramMap.get("race_cd").getValue() : null,
+					(paramMap.get("religion_cd") != null) ? paramMap.get("religion_cd").getValue() : null,
+					(paramMap.get("sex_cd") != null) ? paramMap.get("sex_cd").getValue() : null,
+					(paramMap.get("vital_status_cd") != null) ? paramMap.get("vital_status_cd").getValue() : null,
+					(paramMap.get("zip_cd") != null) ? paramMap.get("zip_cd").getValue() : null,
+					(paramMap.get("statecityzip_path") != null) ? paramMap.get("statecityzip_path").getValue() : null,
+					(patient.getPatientBlob() != null) ? patient.getPatientBlob().getContent().get(0) : null,
+					(paramMap.get("sourcesystem_cd") != null) ? paramMap.get("sourcesystem_cd").getValue() : null,
 
-					(paramMap.get("update_date") != null) ? paramMap.get(
-							"update_date").getValue() : null,// patient.
-					// getUpdateDate
-					// (),
-					(paramMap.get("download_date") != null) ? paramMap.get(
-							"download_date").getValue() : null,// patient.
-					// getVitalStatusCd
-					// (),
-					(paramMap.get("import_date") != null) ? paramMap.get(
-							"import_date").getValue() : null // patient.getZipCd(
-			// )
+					(paramMap.get("update_date") != null) ? paramMap.get("update_date").getValue() : null,
+					(paramMap.get("download_date") != null) ? paramMap.get("download_date").getValue() : null,
+					(paramMap.get("import_date") != null) ? paramMap.get("import_date").getValue() : null
 
 			};
-
+ 
 			super.update(objs);
 			// retrieveIdentity(patient);
 		}
@@ -269,13 +261,22 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 		 *            the DataSource to use for the update
 		 */
 		protected PatientUpdate(DataSource ds) {
-			super(ds, "UPDATE patient_dimension SET " + "age_in_years_num=?, "
-					+ "birth_date=?, " + "death_date=?, " + "download_date=?, "
-					+ "import_date=?, " + "language_cd=?, "
-					+ "marital_status_cd=?, " + "race_cd=?, "
-					+ "religion_cd=?, " + "sex_cd=?, " + "sourcesystem_cd=?, "
-					+ "statecityzip_path=?, " + "update_date=?, "
-					+ "vital_status_cd=?, " + "zip_cd=? "
+			super(ds, "UPDATE patient_dimension SET " 
+		            + "age_in_years_num=?, "
+					+ "birth_date=?, " 
+		            + "death_date=?, " 
+					+ "download_date=?, "
+					+ "import_date=?, " 
+					+ "language_cd=?, "
+					+ "marital_status_cd=?, " 
+					+ "race_cd=?, "
+					+ "religion_cd=?, " 
+					+ "sex_cd=?, " 
+					+ "sourcesystem_cd=?, "
+					+ "statecityzip_path=?, " 
+					+ "update_date=?, "
+					+ "vital_status_cd=?, " 
+					+ "zip_cd=? "
 					+ "WHERE patient_num=?");
 			declareParameter(new SqlParameter(Types.INTEGER));
 			declareParameter(new SqlParameter(Types.DATE));
@@ -304,14 +305,22 @@ public class PatientDAO extends CRCLoaderDAO implements IPatientDAO {
 		 * @return the number of rows affected by the update
 		 */
 		protected int update(Patient patient) {
-			return this.update(new Object[] { patient.getAgeInYearsNum(),
-					patient.getBirthDate(), patient.getDeathDate(),
-					patient.getDownloadDate(), patient.getImportDate(),
-					patient.getLanguageCd(), patient.getMaritalStatusCd(),
-					patient.getRaceCd(), patient.getReligionCd(),
-					patient.getSexCd(), patient.getSourceSystemCd(),
-					patient.getStateCityZipPath(), patient.getUpdateDate(),
-					patient.getVitalStatusCd(), patient.getZipCd(),
+			return this.update(new Object[] { 
+					patient.getAgeInYearsNum(),
+					patient.getBirthDate(), 
+					patient.getDeathDate(),
+					patient.getDownloadDate(), 
+					patient.getImportDate(),
+					patient.getLanguageCd(), 
+					patient.getMaritalStatusCd(),
+					patient.getRaceCd(), 
+					patient.getReligionCd(),
+					patient.getSexCd(), 
+					patient.getSourceSystemCd(),
+					patient.getStateCityZipPath(), 
+					patient.getUpdateDate(),
+					patient.getVitalStatusCd(), 
+					patient.getZipCd(),
 					patient.getPatientNum() });
 		}
 	}

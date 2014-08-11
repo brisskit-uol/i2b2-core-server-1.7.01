@@ -14,6 +14,8 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -29,8 +31,11 @@ import edu.harvard.i2b2.crc.datavo.db.QtQueryMaster;
  * @author rkuttan
  * 
  */
-public class QueryBreakdownTypeSpringDao extends CRCDAO implements
-		IQueryBreakdownTypeDao {
+public class QueryBreakdownTypeSpringDao 
+			 extends CRCDAO 
+			 implements IQueryBreakdownTypeDao {
+	
+	protected final Log log = LogFactory.getLog(getClass());
 
 	JdbcTemplate jdbcTemplate = null;
 
@@ -58,9 +63,16 @@ public class QueryBreakdownTypeSpringDao extends CRCDAO implements
 
 		String sql = "select * from " + getDbSchemaName()
 				+ "qt_breakdown_path where name = ?";
+		
+		log.debug( "QtQueryBreakdownTypeSpringDao name: " + name ) ;
+		log.debug( "QtQueryBreakdownTypeSpringDao sql: " + sql ) ;
+				
 		QtQueryBreakdownType queryStatusType = (QtQueryBreakdownType) jdbcTemplate
 				.queryForObject(sql, new Object[] { name },
 						queryBreakdownTypeMapper);
+		
+		log.debug( "QtQueryBreakdownType: " + queryStatusType.toString() ) ;
+		
 		return queryStatusType;
 	}
 
