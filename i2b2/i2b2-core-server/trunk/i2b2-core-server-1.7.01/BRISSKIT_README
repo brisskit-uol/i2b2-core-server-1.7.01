@@ -1,0 +1,47 @@
+#====================================================================================
+#  BRISSKIT README FOR GETTING I2B2 SOURCE INTO AN ECLIPSE DEVELOPMENT ENVIRONMENT.
+#====================================================================================
+
+Assumption: You have an appropriate JDK and ANT installed.
+NB: The following notes are for i2b2 version 1.7.x, when the common package 
+    changed name to edu.harvard.i2b2.server-common.
+
+(1) Advice: start with a fresh workspace with no projects.
+(2) Use the import facility from the file menu to import existing projects...
+(3) When the dialogue appears, choose to import from an archive and select
+    the i2b2 core source zip.
+    (If you don't have the appropriate zip available, different versions
+    should be available from the Brisskit Maven third-party repo.) 
+(4) Select all projects to import.
+(5) All the java projects will have .classpath files.
+    Examine each of these and change all references from edu.harvard.i2b2.common 
+    to edu.harvard.i2b2.server-common
+    NB: even then not all the .classpath may be correct and may require further hand editing.
+(6) You can optionally link each cell project to the edu.harvard.i2b2.server-common
+    project via the project properties option (JAVA BUILD PATH).
+    Jeff did this for consistency's sake.
+(7) Build the edu.harvard.i2b2.server-common project from the command line.    
+    The appropriate invocation is 'ant clean dist' from the project directory.
+(8) Refresh the project within Eclipse.
+(9) Then build each of the cell projects, again from the command line.
+    The appropriate invocation is 'ant -f master_build.xml clean build-all'
+    Remember to refresh each project within Eclipse.
+    
+At that point you will have an i2b2 system built and available within Eclipse.
+
+The reason this was done originally was to get the crc cell into development to
+change some of the code for the loader functionality. Such changes will/should
+end up within the Brisskit svn repository.
+
+To take Brisskit changes into development:
+(a) Do the above, steps (1) to (9).
+(b) Delete the appropriate cell project (eg: edu.harvard.i2b2.crc) and replace
+    it with the corresponding Brisskit version from svn.
+(c) Build the Brisskit version from the command line, and refresh within Eclipse.
+
+WARNING and REQUEST. 
+Try not to commit files from the classes, dist, genlib and gensrc directories.
+Binaries contained in other directories are unfortunately required.
+
+
+
